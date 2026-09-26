@@ -1,5 +1,9 @@
 # Kontra-KI
 
+[![Tests](https://github.com/Maldaror/kontra-ki/actions/workflows/test.yml/badge.svg)](https://github.com/Maldaror/kontra-ki/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
+
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/kontra-ki-logo-dark.svg">
