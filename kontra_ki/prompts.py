@@ -7,7 +7,7 @@ persona directly from their prompt picker, instead of only through a
 free-text tool argument.
 """
 
-from kontra_ki.personas import PERSONAS, STRICT_CAPABLE_PERSONAS
+from kontra_ki.personas import PERSONAS
 
 # Short, client-facing description per persona - shown in the prompt picker.
 PROMPT_DESCRIPTIONS: dict[str, str] = {
