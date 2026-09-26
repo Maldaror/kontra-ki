@@ -1,7 +1,10 @@
 # Kontra-KI
 
 <p align="center">
-  <img src="assets/kontra-ki-logo.svg" alt="kontra ki — Ideas, under pressure" width="680">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/kontra-ki-logo-dark.svg">
+    <img src="assets/kontra-ki-logo.svg" alt="kontra ki — Ideas, under pressure" width="680">
+  </picture>
 </p>
 
 MCP server that sends ideas to a locally running LM Studio model for adversarial
