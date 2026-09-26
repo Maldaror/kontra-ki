@@ -10,9 +10,13 @@ unchallenged, Claude has an independent second model interrogate them first.
 
 1. Load a model (e.g. a local Llama/Qwen/Mistral model).
 2. Start the local server in the Developer tab (default: `http://localhost:1234`).
-3. Check the model name: `curl http://localhost:1234/v1/models`. Kontra-KI's default
-   is `qwen3.6-35b-a3b` (the model loaded when this was set up). If yours differs,
-   override it with `KONTRA_KI_MODEL` (see below).
+
+Kontra-KI auto-detects the model: on every call it asks LM Studio's native API
+(`/api/v0/models`, not the OpenAI-compatible one - that one doesn't expose load state)
+for the single chat-capable model currently loaded, and uses that. No configuration
+needed as long as exactly one non-embedding model is loaded. If zero or more than one
+are loaded, the call fails with a clear error naming the candidates - set
+`KONTRA_KI_MODEL` to disambiguate (see below).
 
 ### 2. Install Kontra-KI
 
@@ -29,7 +33,8 @@ pip install -e .
 claude mcp add kontra-ki --scope user -- /Users/mike/Projekte/kontra-ki/.venv/bin/python -m kontra_ki.server
 ```
 
-If your LM Studio model isn't named `qwen3.6-35b-a3b`:
+To pin a specific model instead of auto-detecting (e.g. if you keep several
+chat-capable models loaded at once):
 
 ```bash
 claude mcp add kontra-ki --scope user --env KONTRA_KI_MODEL=<your-model-name> -- /Users/mike/Projekte/kontra-ki/.venv/bin/python -m kontra_ki.server
