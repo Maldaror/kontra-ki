@@ -92,7 +92,19 @@ a clear error instead of being silently ignored.
 | `chief_architect` | Impatient chief architect - no platitudes, demands Big-O/protocols/race-condition proof |
 | `sycophant_hunter` | Audits the *response itself*, not code/arguments - flags praise, softened risk, or hedging shaped to please the asker rather than be correct |
 
-To add a persona: add an entry to the `PERSONAS` dict in `kontra_ki/personas.py`.
+To add a persona: add an entry to the `PERSONAS` dict in `kontra_ki/personas.py`, and a
+matching one to `PROMPT_DESCRIPTIONS` in `kontra_ki/prompts.py` (the two are asserted to
+stay in sync at import time).
+
+### Prompts
+
+Each persona is also registered as an MCP prompt (`diabolo`, `cynic`, `antithesis`,
+`code_skeptic`, `inquisitor`, `chief_architect`, `sycophant_hunter`), so clients that show
+a prompt picker (e.g. Claude Desktop) can select a persona directly instead of only
+reaching it through the `persona` string argument of `challenge_idea`. Each prompt takes
+`idea` (required) and `context` (optional); `code_skeptic` and `inquisitor` additionally
+take `strict`. A prompt renders to an instruction telling the calling model which
+`challenge_idea` call to make - it doesn't call LM Studio itself.
 
 ### Chaining personas
 
@@ -107,11 +119,21 @@ original submission as `context`). This composes in either direction:
   and the original submission as `context`, to check whether that critique itself was
   generic, unearned, or overreaching rather than grounded in the actual input.
 
+### Logging
+
+Every call (accepted, rejected, or failed) is logged to stderr with persona, `strict`,
+and - for strict calls - the verdict, so you can audit what was reviewed and when.
+Never logged to stdout: that's the stdio transport's JSON-RPC channel, and writing to it
+would corrupt the protocol stream. Log level defaults to `INFO`; override with
+`KONTRA_KI_LOG_LEVEL` (e.g. `DEBUG`, `WARNING`).
+
 ## Structure
 
 - `kontra_ki/personas.py` - persona registry (system prompts, default)
+- `kontra_ki/prompts.py` - one MCP prompt template per persona
 - `kontra_ki/lm_studio_client.py` - HTTP client for LM Studio's chat completions endpoint
-- `kontra_ki/server.py` - MCP server, wires the tool call to persona + client
+- `kontra_ki/server.py` - MCP server, wires the tool call to persona + client, audit logging
+- `tests/` - pytest suite (verdict parsing, tool error paths, prompt registration/rendering)
 
 ## Design decisions
 

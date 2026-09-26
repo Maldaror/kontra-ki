@@ -98,3 +98,43 @@ class TestChallengeIdea:
         await challenge_idea(idea="the idea", context="the context")
         assert "the context" in captured["user_content"]
         assert "the idea" in captured["user_content"]
+
+
+class TestAuditLogging:
+    async def test_unknown_persona_is_logged_as_warning(self, caplog):
+        with caplog.at_level("WARNING", logger="kontra_ki"):
+            with pytest.raises(ToolError):
+                await challenge_idea(idea="test", persona="does_not_exist")
+        assert "unknown persona" in caplog.text
+
+    async def test_lm_studio_error_is_logged_as_error(self, monkeypatch, caplog):
+        async def fake_ask(system_prompt, user_content):
+            raise LMStudioError("boom")
+
+        monkeypatch.setattr(server, "ask", fake_ask)
+
+        with caplog.at_level("ERROR", logger="kontra_ki"):
+            with pytest.raises(ToolError):
+                await challenge_idea(idea="test")
+        assert "call failed" in caplog.text
+        assert "boom" in caplog.text
+
+    async def test_successful_strict_call_logs_verdict(self, monkeypatch, caplog):
+        async def fake_ask(system_prompt, user_content):
+            return "looks fine\nVERDICT: PASS"
+
+        monkeypatch.setattr(server, "ask", fake_ask)
+
+        with caplog.at_level("INFO", logger="kontra_ki"):
+            await challenge_idea(idea="test", persona="inquisitor", strict=True)
+        assert "verdict=PASS" in caplog.text
+
+    async def test_missing_verdict_is_logged_as_warning(self, monkeypatch, caplog):
+        async def fake_ask(system_prompt, user_content):
+            return "no verdict line here"
+
+        monkeypatch.setattr(server, "ask", fake_ask)
+
+        with caplog.at_level("WARNING", logger="kontra_ki"):
+            await challenge_idea(idea="test", persona="inquisitor", strict=True)
+        assert "verdict=missing" in caplog.text
