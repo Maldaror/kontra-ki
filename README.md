@@ -133,7 +133,8 @@ would corrupt the protocol stream. Log level defaults to `INFO`; override with
 - `kontra_ki/prompts.py` - one MCP prompt template per persona
 - `kontra_ki/lm_studio_client.py` - HTTP client for LM Studio's chat completions endpoint
 - `kontra_ki/server.py` - MCP server, wires the tool call to persona + client, audit logging
-- `tests/` - pytest suite (verdict parsing, tool error paths, prompt registration/rendering)
+- `tests/` - pytest suite (verdict parsing, tool error paths, prompt registration/rendering,
+  LM Studio client error handling)
 
 ## Design decisions
 
