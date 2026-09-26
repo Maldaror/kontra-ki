@@ -72,6 +72,19 @@ a clear error instead of being silently ignored.
 
 To add a persona: add an entry to the `PERSONAS` dict in `kontra_ki/personas.py`.
 
+### Chaining personas
+
+The server stays single-shot and stateless on purpose (see Design decisions) - there is
+no built-in multi-persona chain tool. Chaining is the calling agent's job: call
+`challenge_idea` once, then feed its output back in as the next call's `idea` (with the
+original submission as `context`). This composes in either direction:
+
+- **Same target, different angles**: run `inquisitor` and `chief_architect` on the same
+  idea independently, then compare verdicts yourself.
+- **Critique-of-critique**: run `sycophant_hunter` with a persona's critique as `idea`
+  and the original submission as `context`, to check whether that critique itself was
+  generic, unearned, or overreaching rather than grounded in the actual input.
+
 ## Structure
 
 - `kontra_ki/personas.py` - persona registry (system prompts, default)
