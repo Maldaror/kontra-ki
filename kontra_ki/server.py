@@ -34,7 +34,7 @@ def _split_verdict(reply: str) -> tuple[str, str | None]:
 
 
 @mcp.tool()
-def challenge_idea(
+async def challenge_idea(
     idea: str,
     context: str = "",
     persona: str = DEFAULT_PERSONA,
@@ -63,11 +63,11 @@ def challenge_idea(
             past as a casual comment. Default: False.
     """
     if persona not in PERSONAS:
-        return f"Error: unknown persona '{persona}'. Available: {', '.join(PERSONAS)}."
+        raise ToolError(f"Unknown persona '{persona}'. Available: {', '.join(PERSONAS)}.")
 
     if strict and persona not in STRICT_CAPABLE_PERSONAS:
-        return (
-            f"Error: persona '{persona}' does not support strict mode. "
+        raise ToolError(
+            f"Persona '{persona}' does not support strict mode. "
             f"Strict-capable personas: {', '.join(sorted(STRICT_CAPABLE_PERSONAS))}."
         )
 
@@ -75,9 +75,9 @@ def challenge_idea(
     system_prompt = PERSONAS[persona] + (VERDICT_INSTRUCTION if strict else "")
 
     try:
-        reply = ask(system_prompt, user_content)
+        reply = await ask(system_prompt, user_content)
     except LMStudioError as exc:
-        return f"Error: {exc}"
+        raise ToolError(str(exc)) from exc
 
     if not strict:
         return reply

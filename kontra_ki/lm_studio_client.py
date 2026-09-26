@@ -15,7 +15,7 @@ class LMStudioError(Exception):
     """Raised when LM Studio is unreachable or returns an error response."""
 
 
-def _resolve_model() -> str:
+async def _resolve_model(client: httpx.AsyncClient) -> str:
     """Returns the model to send requests to.
 
     Uses KONTRA_KI_MODEL if set. Otherwise queries LM Studio's native API (not
@@ -30,7 +30,7 @@ def _resolve_model() -> str:
         return CONFIGURED_MODEL
 
     try:
-        response = httpx.get(LM_STUDIO_MODELS_URL, timeout=10)
+        response = await client.get(LM_STUDIO_MODELS_URL, timeout=10)
         response.raise_for_status()
     except httpx.HTTPError as exc:
         raise LMStudioError(
@@ -58,40 +58,43 @@ def _resolve_model() -> str:
     )
 
 
-def ask(system_prompt: str, user_content: str) -> str:
+async def ask(system_prompt: str, user_content: str) -> str:
     """Sends one chat completion request to LM Studio and returns the reply text.
 
     Raises:
         LMStudioError: If the model can't be resolved, LM Studio cannot be
             reached, times out, or returns a non-2xx response.
     """
-    payload = {
-        "model": _resolve_model(),
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_content},
-        ],
-        # Low temperature on purpose: this is an audit/critique task, not creative
-        # writing. High temperature encouraged the model to free-associate generic
-        # best-practice concerns instead of staying anchored to the actual input.
-        "temperature": 0.25,
-    }
+    async with httpx.AsyncClient() as client:
+        payload = {
+            "model": await _resolve_model(client),
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content},
+            ],
+            # Low temperature on purpose: this is an audit/critique task, not creative
+            # writing. High temperature encouraged the model to free-associate generic
+            # best-practice concerns instead of staying anchored to the actual input.
+            "temperature": 0.25,
+        }
 
-    try:
-        response = httpx.post(LM_STUDIO_CHAT_URL, json=payload, timeout=TIMEOUT_SECONDS)
-        response.raise_for_status()
-    except httpx.ConnectError as exc:
-        raise LMStudioError(
-            f"Could not reach LM Studio at {LM_STUDIO_CHAT_URL}. Is the local server "
-            "running (Developer tab -> Start Server)?"
-        ) from exc
-    except httpx.HTTPStatusError as exc:
-        raise LMStudioError(
-            f"LM Studio returned HTTP {exc.response.status_code}: {exc.response.text}"
-        ) from exc
-    except httpx.TimeoutException as exc:
-        raise LMStudioError(
-            f"LM Studio did not respond within {TIMEOUT_SECONDS}s (timeout)."
-        ) from exc
+        try:
+            response = await client.post(
+                LM_STUDIO_CHAT_URL, json=payload, timeout=TIMEOUT_SECONDS
+            )
+            response.raise_for_status()
+        except httpx.ConnectError as exc:
+            raise LMStudioError(
+                f"Could not reach LM Studio at {LM_STUDIO_CHAT_URL}. Is the local server "
+                "running (Developer tab -> Start Server)?"
+            ) from exc
+        except httpx.HTTPStatusError as exc:
+            raise LMStudioError(
+                f"LM Studio returned HTTP {exc.response.status_code}: {exc.response.text}"
+            ) from exc
+        except httpx.TimeoutException as exc:
+            raise LMStudioError(
+                f"LM Studio did not respond within {TIMEOUT_SECONDS}s (timeout)."
+            ) from exc
 
     return response.json()["choices"][0]["message"]["content"]
