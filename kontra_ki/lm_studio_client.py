@@ -97,4 +97,10 @@ async def ask(system_prompt: str, user_content: str) -> str:
                 f"LM Studio did not respond within {TIMEOUT_SECONDS}s (timeout)."
             ) from exc
 
-    return response.json()["choices"][0]["message"]["content"]
+    body = response.json()
+    choices = body.get("choices") or []
+    if not choices or "content" not in choices[0].get("message", {}):
+        raise LMStudioError(
+            f"LM Studio returned an unexpected response shape (no message content): {body}"
+        )
+    return choices[0]["message"]["content"]
