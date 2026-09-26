@@ -25,7 +25,7 @@ elsewhere (a different port, or a different machine on your network), set
 ### 2. Install Kontra-KI
 
 ```bash
-cd /Users/mike/Projekte/kontra-ki
+cd /path/to/kontra-ki
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
@@ -34,20 +34,20 @@ pip install -e .
 ### 3. Register as an MCP server (Claude Code)
 
 ```bash
-claude mcp add kontra-ki --scope user -- /Users/mike/Projekte/kontra-ki/.venv/bin/python -m kontra_ki.server
+claude mcp add kontra-ki --scope user -- /path/to/kontra-ki/.venv/bin/python -m kontra_ki.server
 ```
 
 To pin a specific model instead of auto-detecting (e.g. if you keep several
 chat-capable models loaded at once):
 
 ```bash
-claude mcp add kontra-ki --scope user --env KONTRA_KI_MODEL=<your-model-name> -- /Users/mike/Projekte/kontra-ki/.venv/bin/python -m kontra_ki.server
+claude mcp add kontra-ki --scope user --env KONTRA_KI_MODEL=<your-model-name> -- /path/to/kontra-ki/.venv/bin/python -m kontra_ki.server
 ```
 
 To point at an LM Studio instance that isn't on `localhost:1234`:
 
 ```bash
-claude mcp add kontra-ki --scope user --env KONTRA_KI_LM_STUDIO_URL=http://<host>:<port> -- /Users/mike/Projekte/kontra-ki/.venv/bin/python -m kontra_ki.server
+claude mcp add kontra-ki --scope user --env KONTRA_KI_LM_STUDIO_URL=http://<host>:<port> -- /path/to/kontra-ki/.venv/bin/python -m kontra_ki.server
 ```
 
 `--scope user` makes the server available in every new session, regardless of working
