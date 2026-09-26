@@ -18,6 +18,10 @@ needed as long as exactly one non-embedding model is loaded. If zero or more tha
 are loaded, the call fails with a clear error naming the candidates - set
 `KONTRA_KI_MODEL` to disambiguate (see below).
 
+By default Kontra-KI talks to LM Studio at `http://localhost:1234`. If LM Studio runs
+elsewhere (a different port, or a different machine on your network), set
+`KONTRA_KI_LM_STUDIO_URL` to override it (see below).
+
 ### 2. Install Kontra-KI
 
 ```bash
@@ -38,6 +42,12 @@ chat-capable models loaded at once):
 
 ```bash
 claude mcp add kontra-ki --scope user --env KONTRA_KI_MODEL=<your-model-name> -- /Users/mike/Projekte/kontra-ki/.venv/bin/python -m kontra_ki.server
+```
+
+To point at an LM Studio instance that isn't on `localhost:1234`:
+
+```bash
+claude mcp add kontra-ki --scope user --env KONTRA_KI_LM_STUDIO_URL=http://<host>:<port> -- /Users/mike/Projekte/kontra-ki/.venv/bin/python -m kontra_ki.server
 ```
 
 `--scope user` makes the server available in every new session, regardless of working
@@ -102,8 +112,9 @@ original submission as `context`). This composes in either direction:
   needed in the server.
 - **Several fixed personas, selectable by parameter**: no freely-composed system
   prompts per call, just a curated set in `personas.py`.
-- **Fixed LM Studio URL** (`http://localhost:1234/v1/chat/completions`): no `.env`,
-  since Kontra-KI only ever runs locally next to LM Studio.
+- **LM Studio URL defaults to `http://localhost:1234`**, overridable via
+  `KONTRA_KI_LM_STUDIO_URL` for setups where LM Studio runs on a different port or
+  host (e.g. another machine on the local network).
 - **`isError` flag is optional and persona-restricted**: only `inquisitor` and
   `code_skeptic` have genuine pass/fail semantics. The pure discussion personas
   (`diabolo`, `cynic`, `antithesis`, `chief_architect`) have no verdict - their

@@ -4,7 +4,7 @@ import os
 
 import httpx
 
-LM_STUDIO_BASE = "http://localhost:1234"
+LM_STUDIO_BASE = os.environ.get("KONTRA_KI_LM_STUDIO_URL", "http://localhost:1234").rstrip("/")
 LM_STUDIO_CHAT_URL = f"{LM_STUDIO_BASE}/v1/chat/completions"
 LM_STUDIO_MODELS_URL = f"{LM_STUDIO_BASE}/api/v0/models"
 CONFIGURED_MODEL = os.environ.get("KONTRA_KI_MODEL")
