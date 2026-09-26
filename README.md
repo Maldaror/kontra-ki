@@ -1,5 +1,9 @@
 # Kontra-KI
 
+<p align="center">
+  <img src="assets/kontra-ki-logo.svg" alt="kontra ki — Ideas, under pressure" width="680">
+</p>
+
 MCP server that sends ideas to a locally running LM Studio model for adversarial
 review. Built as a "devil's advocate" for Claude: instead of presenting proposals
 unchallenged, Claude has an independent second model interrogate them first.
