@@ -1,7 +1,7 @@
 [project]
 name = "kontra-ki"
 version = "0.1.0"
-description = "MCP-Server, der Ideen an eine lokale LM-Studio-KI zur kritischen Gegenpruefung schickt"
+description = "MCP server that sends ideas to a local LM Studio model for adversarial review"
 requires-python = ">=3.11"
 dependencies = [
     "mcp>=2.0.0",
