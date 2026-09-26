@@ -68,6 +68,7 @@ a clear error instead of being silently ignored.
 | `code_skeptic` | Paranoid code auditor - maintainability, tests, abstractions, no solutions offered |
 | `inquisitor` | Code inquisitor - rejects pseudocode, TODOs, omissions; demands 100% production-readiness |
 | `chief_architect` | Impatient chief architect - no platitudes, demands Big-O/protocols/race-condition proof |
+| `sycophant_hunter` | Audits the *response itself*, not code/arguments - flags praise, softened risk, or hedging shaped to please the asker rather than be correct |
 
 To add a persona: add an entry to the `PERSONAS` dict in `kontra_ki/personas.py`.
 
