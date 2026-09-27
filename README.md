@@ -12,8 +12,9 @@
 </p>
 
 MCP server that sends ideas to a locally running LM Studio model for adversarial
-review. Built as a "devil's advocate" for Claude: instead of presenting proposals
-unchallenged, Claude has an independent second model interrogate them first.
+review. Built as a "devil's advocate" for coding agents: instead of presenting
+proposals unchallenged, the calling agent - Claude Code, Codex CLI, or any other
+MCP client - has an independent second model interrogate them first.
 
 ## Setup
 
@@ -42,7 +43,12 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-### 3. Register as an MCP server (Claude Code)
+### 3. Register as an MCP server
+
+Kontra-KI is a standard MCP server over stdio, so it works with any MCP-compatible
+client. Two examples:
+
+**Claude Code:**
 
 ```bash
 claude mcp add kontra-ki --scope user -- /path/to/kontra-ki/.venv/bin/python -m kontra_ki.server
@@ -63,6 +69,28 @@ claude mcp add kontra-ki --scope user --env KONTRA_KI_LM_STUDIO_URL=http://<host
 
 `--scope user` makes the server available in every new session, regardless of working
 directory. It then shows up as the `challenge_idea` tool.
+
+**Codex CLI:**
+
+```bash
+codex mcp add kontra-ki -- /path/to/kontra-ki/.venv/bin/python -m kontra_ki.server
+```
+
+Or add it directly to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.kontra-ki]
+command = "/path/to/kontra-ki/.venv/bin/python"
+args = ["-m", "kontra_ki.server"]
+
+[mcp_servers.kontra-ki.env]
+KONTRA_KI_MODEL = "<your-model-name>"          # optional, see above
+KONTRA_KI_LM_STUDIO_URL = "http://<host>:<port>" # optional, see above
+```
+
+Any other MCP client follows the same pattern: run
+`/path/to/kontra-ki/.venv/bin/python -m kontra_ki.server` over stdio, with the same
+two optional environment variables.
 
 ## Tool
 
