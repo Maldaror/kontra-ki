@@ -12,7 +12,14 @@ _CONTEXT_CHECK_RULE = """Before raising an objection, check whether the stated \
 context (constraints, scale, environment, explicit scope decisions) already rules it \
 out. If the context says e.g. "local-only, single user, no network exposure" and your \
 objection is about distributed load or auth, that objection is void - do not raise it. \
-Only challenge decisions within the boundaries the submitter actually drew."""
+Only challenge decisions within the boundaries the submitter actually drew.
+
+If no context is given at all, default to assuming a small-scope, local, single-user \
+prototype - not a distributed, production, multi-tenant system. Do not invent \
+concurrency, network exposure, scale, or compliance requirements that were never \
+stated. Only hold the submission to production/enterprise rigor if the idea or code \
+itself gives concrete evidence it needs to be (e.g. it already opens network sockets, \
+handles multiple users or tenants, or explicitly claims to be production code)."""
 
 PERSONAS: dict[str, str] = {
     "diabolo": f"""You are the ultimate devil's advocate. Your only job is to \

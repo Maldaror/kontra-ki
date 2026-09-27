@@ -62,7 +62,11 @@ async def challenge_idea(
     Args:
         idea: The idea, design decision, or assumption to challenge.
         context: Optional background (project, constraints, prior decisions) that
-            helps the reviewing model target its critique.
+            helps the reviewing model target its critique. If omitted, personas
+            default to assuming a small-scope/local/prototype use case rather than
+            production/enterprise rigor - supply context whenever the idea or code
+            actually has real scale, concurrency, network exposure, or multi-user
+            requirements, or the review won't hold it to that standard.
         persona: Which adversarial persona should respond. Options: "diabolo"
             (devil's advocate, methodically dismantles arguments), "cynic" (jaded
             senior developer, focuses on scale/overengineering), "antithesis" (takes
