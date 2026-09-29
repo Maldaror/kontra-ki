@@ -240,6 +240,29 @@ class TestQuorumReview:
 
         assert calls == ["security_auditor", "code_skeptic", "inquisitor"]
 
+    async def test_parallel_mode_reviews_all_personas(self, monkeypatch):
+        calls = []
+
+        async def fake_ask(system_prompt, user_content):
+            if "application security auditor" in system_prompt:
+                calls.append("security_auditor")
+            elif "paranoid code auditor" in system_prompt:
+                calls.append("code_skeptic")
+            else:
+                calls.append("inquisitor")
+            return "looks fine\nVERDICT: PASS"
+
+        monkeypatch.setattr(server, "ask", fake_ask)
+
+        parsed = json.loads(await quorum_review(idea="test", mode="parallel"))
+
+        assert parsed["outcome"] == "PASS"
+        assert set(calls) == {"security_auditor", "code_skeptic", "inquisitor"}
+
+    async def test_rejects_invalid_quorum_mode(self):
+        with pytest.raises(ToolError, match="serial.*parallel"):
+            await quorum_review(idea="test", mode="burst")
+
 
 class TestAuditLogging:
     async def test_unknown_persona_is_logged_as_warning(self, caplog):

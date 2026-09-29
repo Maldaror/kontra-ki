@@ -25,6 +25,7 @@ QUORUM_TIMEOUT_SECONDS = (
     float(_quorum_timeout_value) if _quorum_timeout_value else None
 )
 DEFAULT_QUORUM_PERSONAS = ("security_auditor", "code_skeptic", "inquisitor")
+QUORUM_MODE = os.environ.get("KONTRA_KI_QUORUM_MODE", "serial").lower()
 
 # stdio is the MCP transport's stdout - never log there, or the JSON-RPC
 # stream gets corrupted. stderr is the only safe default for this transport.
@@ -171,12 +172,16 @@ async def quorum_review(
     context: str = "",
     personas: list[str] | None = None,
     quorum: int = 2,
+    mode: str | None = None,
 ) -> str:
     """Runs independent strict reviews and aggregates their votes deterministically.
 
     If both vote types reach the configured quorum, REJECT takes precedence.
     """
     selected = list(DEFAULT_QUORUM_PERSONAS) if personas is None else list(personas)
+    selected_mode = QUORUM_MODE if mode is None else mode.lower()
+    if selected_mode not in {"serial", "parallel"}:
+        raise ToolError("Quorum mode must be 'serial' or 'parallel'.")
     if len(selected) < 2:
         raise ToolError("Quorum review requires at least two personas.")
     if len(set(selected)) != len(selected):
@@ -194,12 +199,18 @@ async def quorum_review(
                 f"Strict-capable personas: {', '.join(sorted(STRICT_CAPABLE_PERSONAS))}."
             )
 
-    raw_reviews = []
-    for persona in selected:
-        try:
-            raw_reviews.append(await _review_with_timeout(idea, context, persona))
-        except Exception as exc:
-            raw_reviews.append(exc)
+    if selected_mode == "parallel":
+        raw_reviews = await asyncio.gather(
+            *(_review_with_timeout(idea, context, persona) for persona in selected),
+            return_exceptions=True,
+        )
+    else:
+        raw_reviews = []
+        for persona in selected:
+            try:
+                raw_reviews.append(await _review_with_timeout(idea, context, persona))
+            except Exception as exc:
+                raw_reviews.append(exc)
     reviews = []
     successful_reviews = []
     for persona, review in zip(selected, raw_reviews):

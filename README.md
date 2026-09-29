@@ -125,6 +125,9 @@ reported explicitly as `reject_precedence`. By default, `security_auditor`,
 requires a majority of the three default voters. Quorums must be at least `2`.
 Reviews run sequentially so the
 security audit is always the first opinion, followed by the code-quality gates.
+Set `KONTRA_KI_QUORUM_MODE=parallel` to run reviews concurrently, or pass
+`mode="parallel"` for a single call. The default is `serial`; an explicit call mode
+overrides the environment setting.
 
 ### Strict mode
 
