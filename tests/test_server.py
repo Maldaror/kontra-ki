@@ -142,8 +142,14 @@ class TestQuorumReview:
             await quorum_review(idea="test", personas=["diabolo", "inquisitor"])
 
     async def test_rejects_invalid_quorum(self):
-        with pytest.raises(ToolError, match="between 1 and 3"):
+        with pytest.raises(ToolError, match="between 2 and 3"):
             await quorum_review(idea="test", quorum=4)
+
+        with pytest.raises(ToolError, match="between 2 and 3"):
+            await quorum_review(idea="test", quorum=1)
+
+        with pytest.raises(ToolError, match="must be an integer"):
+            await quorum_review(idea="test", quorum=2.0)
 
     async def test_does_not_replace_explicit_empty_personas(self):
         with pytest.raises(ToolError, match="at least two personas"):
@@ -186,6 +192,21 @@ class TestQuorumReview:
         assert parsed["counts"]["error"] == 2
         assert all(review["error"] == "review timed out after 0.01s" for review in parsed["reviews"])
 
+    async def test_records_malformed_review_result_as_error(self, monkeypatch):
+        async def malformed_review(idea, context, persona):
+            return "critique", "MAYBE"
+
+        monkeypatch.setattr(server, "_review_with_timeout", malformed_review)
+
+        parsed = json.loads(await quorum_review(idea="test"))
+
+        assert parsed["outcome"] == "INCONCLUSIVE"
+        assert parsed["counts"]["error"] == 3
+        assert all(
+            review["error"] == "review returned an invalid result shape"
+            for review in parsed["reviews"]
+        )
+
     async def test_result_contains_structured_reviews(self, monkeypatch):
         async def fake_ask(system_prompt, user_content):
             return "looks fine\nVERDICT: PASS"
@@ -200,6 +221,24 @@ class TestQuorumReview:
             set(review) == {"persona", "status", "verdict", "critique"}
             for review in parsed["reviews"]
         )
+
+    async def test_default_reviews_start_with_security_auditor(self, monkeypatch):
+        calls = []
+
+        async def fake_ask(system_prompt, user_content):
+            if "application security auditor" in system_prompt:
+                calls.append("security_auditor")
+            elif "paranoid code auditor" in system_prompt:
+                calls.append("code_skeptic")
+            else:
+                calls.append("inquisitor")
+            return "looks fine\nVERDICT: PASS"
+
+        monkeypatch.setattr(server, "ask", fake_ask)
+
+        await quorum_review(idea="test")
+
+        assert calls == ["security_auditor", "code_skeptic", "inquisitor"]
 
 
 class TestAuditLogging:

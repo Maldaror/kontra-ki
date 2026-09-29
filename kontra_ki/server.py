@@ -24,6 +24,7 @@ _quorum_timeout_value = os.environ.get("KONTRA_KI_QUORUM_TIMEOUT_SECONDS")
 QUORUM_TIMEOUT_SECONDS = (
     float(_quorum_timeout_value) if _quorum_timeout_value else None
 )
+DEFAULT_QUORUM_PERSONAS = ("security_auditor", "code_skeptic", "inquisitor")
 
 # stdio is the MCP transport's stdout - never log there, or the JSON-RPC
 # stream gets corrupted. stderr is the only safe default for this transport.
@@ -175,13 +176,15 @@ async def quorum_review(
 
     If both vote types reach the configured quorum, REJECT takes precedence.
     """
-    selected = sorted(STRICT_CAPABLE_PERSONAS) if personas is None else list(personas)
+    selected = list(DEFAULT_QUORUM_PERSONAS) if personas is None else list(personas)
     if len(selected) < 2:
         raise ToolError("Quorum review requires at least two personas.")
     if len(set(selected)) != len(selected):
         raise ToolError("Quorum review personas must be unique.")
-    if quorum < 1 or quorum > len(selected):
-        raise ToolError(f"Quorum must be between 1 and {len(selected)}.")
+    if not isinstance(quorum, int) or isinstance(quorum, bool):
+        raise ToolError("Quorum must be an integer.")
+    if quorum < 2 or quorum > len(selected):
+        raise ToolError(f"Quorum must be between 2 and {len(selected)}.")
     for persona in selected:
         if persona not in PERSONAS:
             raise ToolError(f"Unknown persona '{persona}'. Available: {', '.join(PERSONAS)}.")
@@ -191,10 +194,12 @@ async def quorum_review(
                 f"Strict-capable personas: {', '.join(sorted(STRICT_CAPABLE_PERSONAS))}."
             )
 
-    raw_reviews = await asyncio.gather(
-        *(_review_with_timeout(idea, context, persona) for persona in selected),
-        return_exceptions=True,
-    )
+    raw_reviews = []
+    for persona in selected:
+        try:
+            raw_reviews.append(await _review_with_timeout(idea, context, persona))
+        except Exception as exc:
+            raw_reviews.append(exc)
     reviews = []
     successful_reviews = []
     for persona, review in zip(selected, raw_reviews):
@@ -204,6 +209,20 @@ async def quorum_review(
                     "persona": persona,
                     "status": "error",
                     "error": _review_error_message(review),
+                }
+            )
+            continue
+        if (
+            not isinstance(review, tuple)
+            or len(review) != 2
+            or not isinstance(review[0], str)
+            or review[1] not in {"PASS", "REJECT"}
+        ):
+            reviews.append(
+                {
+                    "persona": persona,
+                    "status": "error",
+                    "error": "review returned an invalid result shape",
                 }
             )
             continue

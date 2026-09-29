@@ -120,9 +120,11 @@ aggregates their votes deterministically. It returns JSON with `outcome`, `count
 `policy`, `votes`, and the individual `reviews`. The result is `PASS` or `REJECT`
 only when the configured quorum is reached; split votes return `INCONCLUSIVE`.
 If both vote types reach the quorum, `REJECT` takes precedence and the policy is
-reported explicitly as `reject_precedence`. By default, `code_skeptic`,
-`inquisitor`, and `security_auditor` vote; a quorum of `2` therefore requires a
-majority of the three default voters.
+reported explicitly as `reject_precedence`. By default, `security_auditor`,
+`code_skeptic`, and `inquisitor` vote in that order; a quorum of `2` therefore
+requires a majority of the three default voters. Quorums must be at least `2`.
+Reviews run sequentially so the
+security audit is always the first opinion, followed by the code-quality gates.
 
 ### Strict mode
 
