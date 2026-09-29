@@ -1,6 +1,7 @@
 """Thin client for LM Studio's OpenAI-compatible chat completions endpoint."""
 
 import os
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -8,11 +9,37 @@ LM_STUDIO_BASE = os.environ.get("KONTRA_KI_LM_STUDIO_URL", "http://localhost:123
 LM_STUDIO_CHAT_URL = f"{LM_STUDIO_BASE}/v1/chat/completions"
 LM_STUDIO_MODELS_URL = f"{LM_STUDIO_BASE}/api/v0/models"
 CONFIGURED_MODEL = os.environ.get("KONTRA_KI_MODEL")
+API_KEY = os.environ.get("KONTRA_KI_LM_STUDIO_API_KEY")
 TIMEOUT_SECONDS = 120
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
 
 
 class LMStudioError(Exception):
     """Raised when LM Studio is unreachable or returns an error response."""
+
+
+def _validate_endpoint() -> None:
+    """Rejects remote endpoints without TLS and explicit authentication."""
+    parsed = urlsplit(LM_STUDIO_BASE)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise LMStudioError(
+            "KONTRA_KI_LM_STUDIO_URL must be an http:// or https:// URL with a host."
+        )
+    if parsed.hostname.lower() in LOCAL_HOSTS:
+        return
+    if parsed.scheme != "https":
+        raise LMStudioError(
+            "Remote LM Studio endpoints must use HTTPS. Set KONTRA_KI_LM_STUDIO_URL "
+            "to an https:// URL."
+        )
+    if not API_KEY:
+        raise LMStudioError(
+            "Remote LM Studio endpoints require KONTRA_KI_LM_STUDIO_API_KEY."
+        )
+
+
+def _request_headers() -> dict[str, str]:
+    return {"Authorization": f"Bearer {API_KEY}"} if API_KEY else {}
 
 
 async def _resolve_model(client: httpx.AsyncClient) -> str:
@@ -30,7 +57,9 @@ async def _resolve_model(client: httpx.AsyncClient) -> str:
         return CONFIGURED_MODEL
 
     try:
-        response = await client.get(LM_STUDIO_MODELS_URL, timeout=10)
+        response = await client.get(
+            LM_STUDIO_MODELS_URL, headers=_request_headers(), timeout=10
+        )
         response.raise_for_status()
     except httpx.HTTPError as exc:
         raise LMStudioError(
@@ -65,6 +94,7 @@ async def ask(system_prompt: str, user_content: str) -> str:
         LMStudioError: If the model can't be resolved, LM Studio cannot be
             reached, times out, or returns a non-2xx response.
     """
+    _validate_endpoint()
     async with httpx.AsyncClient() as client:
         payload = {
             "model": await _resolve_model(client),
@@ -80,7 +110,10 @@ async def ask(system_prompt: str, user_content: str) -> str:
 
         try:
             response = await client.post(
-                LM_STUDIO_CHAT_URL, json=payload, timeout=TIMEOUT_SECONDS
+                LM_STUDIO_CHAT_URL,
+                headers=_request_headers(),
+                json=payload,
+                timeout=TIMEOUT_SECONDS,
             )
             response.raise_for_status()
         except httpx.ConnectError as exc:

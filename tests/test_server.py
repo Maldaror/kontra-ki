@@ -136,5 +136,6 @@ class TestAuditLogging:
         monkeypatch.setattr(server, "ask", fake_ask)
 
         with caplog.at_level("WARNING", logger="kontra_ki"):
-            await challenge_idea(idea="test", persona="inquisitor", strict=True)
+            with pytest.raises(ToolError, match="no valid verdict"):
+                await challenge_idea(idea="test", persona="inquisitor", strict=True)
         assert "verdict=missing" in caplog.text

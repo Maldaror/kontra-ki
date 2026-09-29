@@ -108,9 +108,9 @@ async def challenge_idea(
     critique, verdict = _split_verdict(reply)
     if verdict is None:
         logger.warning(
-            "call completed: persona=%s strict=True verdict=missing (failing open)", persona
+            "call failed: persona=%s strict=True verdict=missing", persona
         )
-        return critique
+        raise ToolError("Strict review returned no valid verdict.")
 
     logger.info("call completed: persona=%s strict=True verdict=%s", persona, verdict)
     if verdict == "REJECT":

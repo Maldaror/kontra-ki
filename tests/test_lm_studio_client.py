@@ -8,7 +8,9 @@ from kontra_ki.lm_studio_client import LMStudioError, ask
 class FakeAsyncClient:
     """Stand-in for httpx.AsyncClient exposing only what ask()/_resolve_model use."""
 
-    def __init__(self, get_response=None, post_response=None, get_exc=None, post_exc=None):
+    def __init__(
+        self, get_response=None, post_response=None, get_exc=None, post_exc=None
+    ):
         self._get_response = get_response
         self._post_response = post_response
         self._get_exc = get_exc
@@ -20,12 +22,14 @@ class FakeAsyncClient:
     async def __aexit__(self, *exc_info):
         return False
 
-    async def get(self, url, timeout=None):
+    async def get(self, url, headers=None, timeout=None):
+        self.get_headers = headers
         if self._get_exc:
             raise self._get_exc
         return self._get_response
 
-    async def post(self, url, json=None, timeout=None):
+    async def post(self, url, headers=None, json=None, timeout=None):
+        self.post_headers = headers
         if self._post_exc:
             raise self._post_exc
         return self._post_response
@@ -54,6 +58,38 @@ class TestAsk:
 
         result = await ask("system", "user")
         assert result == "the critique"
+
+    async def test_sends_api_key_as_bearer_header(self, monkeypatch):
+        monkeypatch.setattr(client, "CONFIGURED_MODEL", "test-model")
+        monkeypatch.setattr(client, "API_KEY", "secret")
+        fake = use_fake_client(
+            monkeypatch,
+            post_response=make_response(
+                {"choices": [{"message": {"content": "the critique"}}]}
+            ),
+        )
+
+        await ask("system", "user")
+
+        assert fake.post_headers == {"Authorization": "Bearer secret"}
+
+    async def test_rejects_remote_http_endpoint(self, monkeypatch):
+        monkeypatch.setattr(client, "LM_STUDIO_BASE", "http://remote-host:1234")
+        monkeypatch.setattr(client, "LM_STUDIO_CHAT_URL", "http://remote-host:1234/v1/chat/completions")
+        monkeypatch.setattr(client, "LM_STUDIO_MODELS_URL", "http://remote-host:1234/api/v0/models")
+        monkeypatch.setattr(client, "API_KEY", "secret")
+
+        with pytest.raises(LMStudioError, match="must use HTTPS"):
+            await ask("system", "user")
+
+    async def test_rejects_remote_https_without_api_key(self, monkeypatch):
+        monkeypatch.setattr(client, "LM_STUDIO_BASE", "https://remote-host:1234")
+        monkeypatch.setattr(client, "LM_STUDIO_CHAT_URL", "https://remote-host:1234/v1/chat/completions")
+        monkeypatch.setattr(client, "LM_STUDIO_MODELS_URL", "https://remote-host:1234/api/v0/models")
+        monkeypatch.setattr(client, "API_KEY", None)
+
+        with pytest.raises(LMStudioError, match="require KONTRA_KI_LM_STUDIO_API_KEY"):
+            await ask("system", "user")
 
     async def test_raises_on_empty_choices(self, monkeypatch):
         monkeypatch.setattr(client, "CONFIGURED_MODEL", "test-model")

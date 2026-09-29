@@ -32,7 +32,8 @@ are loaded, the call fails with a clear error naming the candidates - set
 
 By default Kontra-KI talks to LM Studio at `http://localhost:1234`. If LM Studio runs
 elsewhere (a different port, or a different machine on your network), set
-`KONTRA_KI_LM_STUDIO_URL` to override it (see below).
+`KONTRA_KI_LM_STUDIO_URL` to override it (see below). Remote endpoints must use
+HTTPS and require `KONTRA_KI_LM_STUDIO_API_KEY`; local `localhost` usage does not.
 
 ### 2. Install Kontra-KI
 
@@ -64,7 +65,10 @@ claude mcp add kontra-ki --scope user --env KONTRA_KI_MODEL=<your-model-name> --
 To point at an LM Studio instance that isn't on `localhost:1234`:
 
 ```bash
-claude mcp add kontra-ki --scope user --env KONTRA_KI_LM_STUDIO_URL=http://<host>:<port> -- /path/to/kontra-ki/.venv/bin/python -m kontra_ki.server
+claude mcp add kontra-ki --scope user \
+  --env KONTRA_KI_LM_STUDIO_URL=https://<host>:<port> \
+  --env KONTRA_KI_LM_STUDIO_API_KEY=<api-key> \
+  -- /path/to/kontra-ki/.venv/bin/python -m kontra_ki.server
 ```
 
 `--scope user` makes the server available in every new session, regardless of working
@@ -108,8 +112,8 @@ semantics): with `strict=True`, the persona also issues a verdict (`VERDICT: REJ
 `VERDICT: PASS`). On `REJECT`, the tool call itself comes back as an MCP tool error
 (`isError=True`, via `ToolError`) instead of plain text - the calling model gets the
 "must fix this" reflex instead of a skimmable text comment. If the local model doesn't
-emit the expected verdict format, the tool fails open (text is returned normally, no
-silent failure). Requesting `strict=True` on a persona that doesn't support it returns
+emit the expected verdict format, the tool returns an MCP tool error instead of treating
+the review as successful. Requesting `strict=True` on a persona that doesn't support it returns
 a clear error instead of being silently ignored.
 
 ### Personas
