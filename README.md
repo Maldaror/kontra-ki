@@ -112,12 +112,13 @@ aggregates their votes deterministically. It returns JSON with `outcome`, `count
 `policy`, `votes`, and the individual `reviews`. The result is `PASS` or `REJECT`
 only when the configured quorum is reached; split votes return `INCONCLUSIVE`.
 If both vote types reach the quorum, `REJECT` takes precedence and the policy is
-reported explicitly as `reject_precedence`. By default, `code_skeptic` and
-`inquisitor` vote; a quorum of `2` therefore requires both default voters to agree.
+reported explicitly as `reject_precedence`. By default, `code_skeptic`,
+`inquisitor`, and `security_auditor` vote; a quorum of `2` therefore requires a
+majority of the three default voters.
 
 ### Strict mode
 
-Only for `inquisitor` and `code_skeptic` (the two personas with genuine pass/fail
+Only for `inquisitor`, `code_skeptic`, and `security_auditor` (the personas with genuine pass/fail
 semantics): with `strict=True`, the persona also issues a verdict (`VERDICT: REJECT` /
 `VERDICT: PASS`). On `REJECT`, the tool call itself comes back as an MCP tool error
 (`isError=True`, via `ToolError`) instead of plain text - the calling model gets the
@@ -135,6 +136,7 @@ a clear error instead of being silently ignored.
 | `antithesis` | Radically takes the opposite position to whatever the user argues |
 | `code_skeptic` | Paranoid code auditor - maintainability, tests, abstractions, no solutions offered |
 | `inquisitor` | Code inquisitor - rejects pseudocode, TODOs, omissions; demands 100% production-readiness |
+| `security_auditor` | Security auditor - traces concrete vulnerabilities, exploitability, and impact |
 | `chief_architect` | Impatient chief architect - no platitudes, demands Big-O/protocols/race-condition proof |
 | `sycophant_hunter` | Audits the *response itself*, not code/arguments - flags praise, softened risk, or hedging shaped to please the asker rather than be correct |
 
@@ -145,10 +147,11 @@ stay in sync at import time).
 ### Prompts
 
 Each persona is also registered as an MCP prompt (`diabolo`, `cynic`, `antithesis`,
-`code_skeptic`, `inquisitor`, `chief_architect`, `sycophant_hunter`), so clients that show
+`code_skeptic`, `inquisitor`, `security_auditor`, `chief_architect`, `sycophant_hunter`), so clients that show
 a prompt picker (e.g. Claude Desktop) can select a persona directly instead of only
 reaching it through the `persona` string argument of `challenge_idea`. Each prompt takes
-`idea` (required) and `context` (optional); `code_skeptic` and `inquisitor` additionally
+`idea` (required) and `context` (optional); `code_skeptic`, `inquisitor`, and
+`security_auditor` additionally
 take `strict`. A prompt renders to an instruction telling the calling model which
 `challenge_idea` call to make - it doesn't call LM Studio itself.
 
@@ -191,8 +194,8 @@ would corrupt the protocol stream. Log level defaults to `INFO`; override with
 - **LM Studio URL defaults to `http://localhost:1234`**, overridable via
   `KONTRA_KI_LM_STUDIO_URL` for setups where LM Studio runs on a different port or
   host (e.g. another machine on the local network).
-- **`isError` flag is optional and persona-restricted**: only `inquisitor` and
-  `code_skeptic` have genuine pass/fail semantics. The pure discussion personas
+- **`isError` flag is optional and persona-restricted**: only `inquisitor`,
+  `code_skeptic`, and `security_auditor` have genuine pass/fail semantics. The pure discussion personas
   (`diabolo`, `cynic`, `antithesis`, `chief_architect`) have no verdict - their
   critique is opinion, not a ruling; `strict=True` there is rejected with an error
   instead of silently ignored.

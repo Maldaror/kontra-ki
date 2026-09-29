@@ -115,8 +115,12 @@ class TestQuorumReview:
 
         assert parsed["outcome"] == "REJECT"
         assert parsed["policy"] == "reject_precedence"
-        assert parsed["votes"] == {"code_skeptic": "REJECT", "inquisitor": "REJECT"}
-        assert len(parsed["reviews"]) == 2
+        assert parsed["votes"] == {
+            "code_skeptic": "REJECT",
+            "inquisitor": "REJECT",
+            "security_auditor": "REJECT",
+        }
+        assert len(parsed["reviews"]) == 3
 
     async def test_returns_inconclusive_on_split_vote(self, monkeypatch):
         responses = iter(("looks fine\nVERDICT: PASS", "needs work\nVERDICT: REJECT"))
@@ -126,7 +130,9 @@ class TestQuorumReview:
 
         monkeypatch.setattr(server, "ask", fake_ask)
 
-        result = await quorum_review(idea="test")
+        result = await quorum_review(
+            idea="test", personas=["code_skeptic", "inquisitor"]
+        )
 
         assert json.loads(result)["outcome"] == "INCONCLUSIVE"
 
@@ -135,8 +141,8 @@ class TestQuorumReview:
             await quorum_review(idea="test", personas=["diabolo", "inquisitor"])
 
     async def test_rejects_invalid_quorum(self):
-        with pytest.raises(ToolError, match="between 1 and 2"):
-            await quorum_review(idea="test", quorum=3)
+        with pytest.raises(ToolError, match="between 1 and 3"):
+            await quorum_review(idea="test", quorum=4)
 
     async def test_does_not_replace_explicit_empty_personas(self):
         with pytest.raises(ToolError, match="at least two personas"):

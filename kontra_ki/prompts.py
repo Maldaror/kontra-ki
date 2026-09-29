@@ -16,6 +16,7 @@ PROMPT_DESCRIPTIONS: dict[str, str] = {
     "antithesis": "Radically takes the opposite position to whatever you argue.",
     "code_skeptic": "Paranoid code auditor - maintainability, tests, abstractions, no solutions offered.",
     "inquisitor": "Code inquisitor - rejects pseudocode, TODOs, omissions; demands 100% production-readiness.",
+    "security_auditor": "Security auditor - traces concrete vulnerabilities, exploitability, and impact.",
     "chief_architect": "Impatient chief architect - no platitudes, demands Big-O/protocols/race-condition proof.",
     "sycophant_hunter": (
         "Audits the response itself, not code/arguments - flags praise, softened risk, "
@@ -60,6 +61,10 @@ def register_prompts(mcp) -> None:
     @mcp.prompt(name="inquisitor", description=PROMPT_DESCRIPTIONS["inquisitor"])
     def inquisitor(idea: str, context: str = "", strict: bool = False) -> str:
         return _instruction("inquisitor", idea, context, strict)
+
+    @mcp.prompt(name="security_auditor", description=PROMPT_DESCRIPTIONS["security_auditor"])
+    def security_auditor(idea: str, context: str = "", strict: bool = False) -> str:
+        return _instruction("security_auditor", idea, context, strict)
 
     @mcp.prompt(name="chief_architect", description=PROMPT_DESCRIPTIONS["chief_architect"])
     def chief_architect(idea: str, context: str = "") -> str:
