@@ -1,11 +1,13 @@
 import asyncio
 import json
+import re
 
 import pytest
 from mcp.server.mcpserver.exceptions import ToolError
 
 from kontra_ki import server
 from kontra_ki.lm_studio_client import LMStudioError
+from kontra_ki.personas import PERSONAS
 from kontra_ki.server import _split_verdict, challenge_idea, quorum_review
 
 
@@ -52,6 +54,11 @@ class TestChallengeIdea:
     async def test_strict_on_unsupported_persona_raises_tool_error(self):
         with pytest.raises(ToolError, match="does not support strict mode"):
             await challenge_idea(idea="test", persona="diabolo", strict=True)
+
+    def test_docstring_lists_every_persona(self):
+        quoted = set(re.findall(r'"(\w+)"', challenge_idea.__doc__))
+        missing = set(PERSONAS) - quoted
+        assert not missing, f"personas missing from challenge_idea docstring: {missing}"
 
     async def test_lm_studio_error_raises_tool_error(self, monkeypatch):
         async def fake_ask(system_prompt, user_content):
