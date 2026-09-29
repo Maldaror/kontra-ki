@@ -108,9 +108,12 @@ in whatever language the input was written in.
 `quorum_review(idea: str, context: str = "", personas: list[str] | None = None, quorum: int = 2) -> str`
 
 Runs independent strict reviews with the selected strict-capable personas and
-aggregates their votes deterministically. The result is `PASS` or `REJECT` only
-when the configured quorum is reached; split votes return `INCONCLUSIVE` together
-with every individual critique. By default, `code_skeptic` and `inquisitor` vote.
+aggregates their votes deterministically. It returns JSON with `outcome`, `counts`,
+`policy`, `votes`, and the individual `reviews`. The result is `PASS` or `REJECT`
+only when the configured quorum is reached; split votes return `INCONCLUSIVE`.
+If both vote types reach the quorum, `REJECT` takes precedence and the policy is
+reported explicitly as `reject_precedence`. By default, `code_skeptic` and
+`inquisitor` vote; a quorum of `2` therefore requires both default voters to agree.
 
 ### Strict mode
 

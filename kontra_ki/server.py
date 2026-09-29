@@ -1,6 +1,7 @@
 """MCP server exposing kontra-ki's adversarial review tools."""
 
 import asyncio
+import json
 import logging
 import os
 import re
@@ -149,7 +150,10 @@ async def quorum_review(
     personas: list[str] | None = None,
     quorum: int = 2,
 ) -> str:
-    """Runs independent strict reviews and aggregates their votes deterministically."""
+    """Runs independent strict reviews and aggregates their votes deterministically.
+
+    If both vote types reach the configured quorum, REJECT takes precedence.
+    """
     selected = sorted(STRICT_CAPABLE_PERSONAS) if personas is None else list(personas)
     if len(selected) < 2:
         raise ToolError("Quorum review requires at least two personas.")
@@ -176,12 +180,17 @@ async def quorum_review(
     else:
         outcome = "INCONCLUSIVE"
 
-    report = [
-        f"QUORUM: {outcome} ({pass_count} PASS, {reject_count} REJECT; quorum={quorum})"
-    ]
-    for persona, (critique, verdict) in zip(selected, reviews):
-        report.extend((f"--- {persona}: {verdict} ---", critique))
-    return "\n".join(report)
+    result = {
+        "outcome": outcome,
+        "policy": "reject_precedence",
+        "counts": {"pass": pass_count, "reject": reject_count, "quorum": quorum},
+        "votes": {persona: verdict for persona, (_, verdict) in zip(selected, reviews)},
+        "reviews": [
+            {"persona": persona, "verdict": verdict, "critique": critique}
+            for persona, (critique, verdict) in zip(selected, reviews)
+        ],
+    }
+    return json.dumps(result, ensure_ascii=False)
 
 
 def main() -> None:

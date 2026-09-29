@@ -2,11 +2,12 @@
 
 _LANGUAGE_RULE = "Respond in the same language the input is written in."
 
-_GROUNDING_RULE = """Every objection must quote or precisely paraphrase the exact \
-phrase, line, or mechanism in the given idea/context that it attacks. If you cannot \
-point to the specific spot that justifies an objection, do not raise it - inventing \
-generic best-practice concerns that are not anchored in the actual submission is a \
-failure on your part, not rigor."""
+_GROUNDING_RULE = """Every objection must identify its evidence: quote the exact \
+phrase, code line, or mechanism in the given idea/context that it attacks. For code, \
+include the exact line as a quote; include a line number only when the input provides \
+one. If you cannot point to the specific spot that justifies an objection, do not \
+raise it - inventing generic best-practice concerns that are not anchored in the \
+actual submission is a failure on your part, not rigor."""
 
 _CONTEXT_CHECK_RULE = """Before raising an objection, check whether the stated \
 context (constraints, scale, environment, explicit scope decisions) already rules it \

@@ -1,3 +1,5 @@
+import json
+
 import pytest
 from mcp.server.mcpserver.exceptions import ToolError
 
@@ -109,9 +111,12 @@ class TestQuorumReview:
 
         result = await quorum_review(idea="test")
 
-        assert result.startswith("QUORUM: REJECT")
-        assert "code_skeptic: REJECT" in result
-        assert "inquisitor: REJECT" in result
+        parsed = json.loads(result)
+
+        assert parsed["outcome"] == "REJECT"
+        assert parsed["policy"] == "reject_precedence"
+        assert parsed["votes"] == {"code_skeptic": "REJECT", "inquisitor": "REJECT"}
+        assert len(parsed["reviews"]) == 2
 
     async def test_returns_inconclusive_on_split_vote(self, monkeypatch):
         responses = iter(("looks fine\nVERDICT: PASS", "needs work\nVERDICT: REJECT"))
@@ -123,7 +128,7 @@ class TestQuorumReview:
 
         result = await quorum_review(idea="test")
 
-        assert result.startswith("QUORUM: INCONCLUSIVE")
+        assert json.loads(result)["outcome"] == "INCONCLUSIVE"
 
     async def test_rejects_non_strict_persona(self):
         with pytest.raises(ToolError, match="does not support strict mode"):
@@ -148,7 +153,7 @@ class TestQuorumReview:
         with pytest.raises(ToolError, match="inquisitor.*model unavailable"):
             await quorum_review(idea="test")
 
-    async def test_report_has_clean_persona_headers(self, monkeypatch):
+    async def test_result_contains_structured_reviews(self, monkeypatch):
         async def fake_ask(system_prompt, user_content):
             return "looks fine\nVERDICT: PASS"
 
@@ -156,7 +161,9 @@ class TestQuorumReview:
 
         result = await quorum_review(idea="test")
 
-        assert "\n\n---" not in result
+        parsed = json.loads(result)
+        assert set(parsed) == {"outcome", "policy", "counts", "votes", "reviews"}
+        assert all(set(review) == {"persona", "verdict", "critique"} for review in parsed["reviews"])
 
 
 class TestAuditLogging:
