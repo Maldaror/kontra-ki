@@ -68,11 +68,26 @@ async def _resolve_model(client: httpx.AsyncClient) -> str:
             "Server)? You can also set KONTRA_KI_MODEL explicitly."
         ) from exc
 
-    loaded_chat_models = [
-        model["id"]
-        for model in response.json().get("data", [])
-        if model.get("state") == "loaded" and model.get("type") != "embeddings"
-    ]
+    try:
+        body = response.json()
+    except ValueError as exc:
+        raise LMStudioError("LM Studio returned invalid JSON for the model list.") from exc
+
+    data = body.get("data") if isinstance(body, dict) else None
+    if not isinstance(data, list):
+        raise LMStudioError("LM Studio returned an unexpected model response shape.")
+
+    loaded_chat_models = []
+    for model in data:
+        if not isinstance(model, dict):
+            raise LMStudioError("LM Studio returned an unexpected model response shape.")
+        if model.get("state") == "loaded" and model.get("type") != "embeddings":
+            model_id = model.get("id")
+            if not isinstance(model_id, str) or not model_id:
+                raise LMStudioError(
+                    "LM Studio returned an unexpected model response shape."
+                )
+            loaded_chat_models.append(model_id)
 
     if len(loaded_chat_models) == 1:
         return loaded_chat_models[0]
@@ -129,11 +144,27 @@ async def ask(system_prompt: str, user_content: str) -> str:
             raise LMStudioError(
                 f"LM Studio did not respond within {TIMEOUT_SECONDS}s (timeout)."
             ) from exc
+        except httpx.RequestError as exc:
+            raise LMStudioError(
+                f"Could not communicate with LM Studio at {LM_STUDIO_CHAT_URL}."
+            ) from exc
 
-    body = response.json()
-    choices = body.get("choices") or []
-    if not choices or "content" not in choices[0].get("message", {}):
+    try:
+        body = response.json()
+    except ValueError as exc:
+        raise LMStudioError("LM Studio returned invalid JSON for the chat response.") from exc
+
+    choices = body.get("choices") if isinstance(body, dict) else None
+    if not isinstance(choices, list) or not choices:
         raise LMStudioError(
             f"LM Studio returned an unexpected response shape (no message content): {body}"
         )
-    return choices[0]["message"]["content"]
+
+    first_choice = choices[0]
+    message = first_choice.get("message") if isinstance(first_choice, dict) else None
+    content = message.get("content") if isinstance(message, dict) else None
+    if not isinstance(content, str):
+        raise LMStudioError(
+            f"LM Studio returned an unexpected response shape (no message content): {body}"
+        )
+    return content

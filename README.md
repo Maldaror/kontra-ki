@@ -105,6 +105,13 @@ prompt and returns the local model's critique. System prompts are deliberately i
 English (better instruction-following on smaller local models), but the model replies
 in whatever language the input was written in.
 
+`quorum_review(idea: str, context: str = "", personas: list[str] | None = None, quorum: int = 2) -> str`
+
+Runs independent strict reviews with the selected strict-capable personas and
+aggregates their votes deterministically. The result is `PASS` or `REJECT` only
+when the configured quorum is reached; split votes return `INCONCLUSIVE` together
+with every individual critique. By default, `code_skeptic` and `inquisitor` vote.
+
 ### Strict mode
 
 Only for `inquisitor` and `code_skeptic` (the two personas with genuine pass/fail
@@ -168,7 +175,7 @@ would corrupt the protocol stream. Log level defaults to `INFO`; override with
 - `kontra_ki/personas.py` - persona registry (system prompts, default)
 - `kontra_ki/prompts.py` - one MCP prompt template per persona
 - `kontra_ki/lm_studio_client.py` - HTTP client for LM Studio's chat completions endpoint
-- `kontra_ki/server.py` - MCP server, wires the tool call to persona + client, audit logging
+- `kontra_ki/server.py` - MCP server, challenge and quorum tools, audit logging
 - `tests/` - pytest suite (verdict parsing, tool error paths, prompt registration/rendering,
   LM Studio client error handling)
 

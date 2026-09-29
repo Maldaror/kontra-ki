@@ -1,5 +1,6 @@
-"""MCP server exposing kontra-ki's adversarial review tool."""
+"""MCP server exposing kontra-ki's adversarial review tools."""
 
+import asyncio
 import logging
 import os
 import re
@@ -116,6 +117,71 @@ async def challenge_idea(
     if verdict == "REJECT":
         raise ToolError(critique)
     return critique
+
+
+async def _strict_review(
+    idea: str, context: str, persona: str
+) -> tuple[str, str]:
+    if persona not in PERSONAS:
+        raise ToolError(f"Unknown persona '{persona}'. Available: {', '.join(PERSONAS)}.")
+    if persona not in STRICT_CAPABLE_PERSONAS:
+        raise ToolError(
+            f"Persona '{persona}' does not support strict mode. "
+            f"Strict-capable personas: {', '.join(sorted(STRICT_CAPABLE_PERSONAS))}."
+        )
+
+    user_content = f"Context:\n{context}\n\nIdea to challenge:\n{idea}" if context else idea
+    try:
+        reply = await ask(PERSONAS[persona] + VERDICT_INSTRUCTION, user_content)
+    except LMStudioError as exc:
+        raise ToolError(str(exc)) from exc
+
+    critique, verdict = _split_verdict(reply)
+    if verdict is None:
+        raise ToolError("Strict review returned no valid verdict.")
+    return critique, verdict
+
+
+@mcp.tool()
+async def quorum_review(
+    idea: str,
+    context: str = "",
+    personas: list[str] | None = None,
+    quorum: int = 2,
+) -> str:
+    """Runs independent strict reviews and aggregates their votes deterministically."""
+    selected = sorted(STRICT_CAPABLE_PERSONAS) if personas is None else list(personas)
+    if len(selected) < 2:
+        raise ToolError("Quorum review requires at least two personas.")
+    if len(set(selected)) != len(selected):
+        raise ToolError("Quorum review personas must be unique.")
+    if quorum < 1 or quorum > len(selected):
+        raise ToolError(f"Quorum must be between 1 and {len(selected)}.")
+
+    raw_reviews = await asyncio.gather(
+        *(_strict_review(idea, context, persona) for persona in selected),
+        return_exceptions=True,
+    )
+    reviews = []
+    for persona, review in zip(selected, raw_reviews):
+        if isinstance(review, Exception):
+            raise ToolError(f"Persona '{persona}' failed: {review}") from review
+        reviews.append(review)
+    reject_count = sum(verdict == "REJECT" for _, verdict in reviews)
+    pass_count = sum(verdict == "PASS" for _, verdict in reviews)
+    if reject_count >= quorum:
+        outcome = "REJECT"
+    elif pass_count >= quorum:
+        outcome = "PASS"
+    else:
+        outcome = "INCONCLUSIVE"
+
+    report = [
+        f"QUORUM: {outcome} ({pass_count} PASS, {reject_count} REJECT; quorum={quorum})"
+    ]
+    for persona, (critique, verdict) in zip(selected, reviews):
+        report.extend((f"--- {persona}: {verdict} ---", critique))
+    return "\n".join(report)
 
 
 def main() -> None:

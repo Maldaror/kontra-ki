@@ -40,6 +40,11 @@ def make_response(json_data, status_code=200):
     return httpx.Response(status_code, json=json_data, request=request)
 
 
+def make_invalid_json_response():
+    request = httpx.Request("POST", "http://localhost:1234/v1/chat/completions")
+    return httpx.Response(200, content=b"not-json", request=request)
+
+
 def use_fake_client(monkeypatch, **kwargs):
     fake = FakeAsyncClient(**kwargs)
     monkeypatch.setattr(client.httpx, "AsyncClient", lambda: fake)
@@ -107,6 +112,20 @@ class TestAsk:
         with pytest.raises(LMStudioError, match="unexpected response shape"):
             await ask("system", "user")
 
+    async def test_raises_on_invalid_json_response(self, monkeypatch):
+        monkeypatch.setattr(client, "CONFIGURED_MODEL", "test-model")
+        use_fake_client(monkeypatch, post_response=make_invalid_json_response())
+
+        with pytest.raises(LMStudioError, match="invalid JSON"):
+            await ask("system", "user")
+
+    async def test_raises_on_non_list_choices(self, monkeypatch):
+        monkeypatch.setattr(client, "CONFIGURED_MODEL", "test-model")
+        use_fake_client(monkeypatch, post_response=make_response({"choices": {}}))
+
+        with pytest.raises(LMStudioError, match="unexpected response shape"):
+            await ask("system", "user")
+
     async def test_raises_on_connect_error(self, monkeypatch):
         monkeypatch.setattr(client, "CONFIGURED_MODEL", "test-model")
         request = httpx.Request("POST", "http://localhost:1234/v1/chat/completions")
@@ -121,6 +140,14 @@ class TestAsk:
         use_fake_client(monkeypatch, post_exc=httpx.TimeoutException("slow", request=request))
 
         with pytest.raises(LMStudioError, match="did not respond within"):
+            await ask("system", "user")
+
+    async def test_raises_on_other_request_error(self, monkeypatch):
+        monkeypatch.setattr(client, "CONFIGURED_MODEL", "test-model")
+        request = httpx.Request("POST", "http://localhost:1234/v1/chat/completions")
+        use_fake_client(monkeypatch, post_exc=httpx.ReadError("connection lost", request=request))
+
+        with pytest.raises(LMStudioError, match="communicate with LM Studio"):
             await ask("system", "user")
 
     async def test_raises_on_http_status_error(self, monkeypatch):
@@ -170,4 +197,19 @@ class TestResolveModel:
         }
         async with FakeAsyncClient(get_response=make_response(data)) as c:
             with pytest.raises(LMStudioError, match="multiple loaded"):
+                await client._resolve_model(c)
+
+    async def test_raises_on_invalid_model_json(self, monkeypatch):
+        monkeypatch.setattr(client, "CONFIGURED_MODEL", None)
+
+        async with FakeAsyncClient(get_response=make_invalid_json_response()) as c:
+            with pytest.raises(LMStudioError, match="invalid JSON"):
+                await client._resolve_model(c)
+
+    async def test_raises_on_malformed_model_data(self, monkeypatch):
+        monkeypatch.setattr(client, "CONFIGURED_MODEL", None)
+        data = {"data": [{"state": "loaded", "type": "llm"}]}
+
+        async with FakeAsyncClient(get_response=make_response(data)) as c:
+            with pytest.raises(LMStudioError, match="unexpected model response shape"):
                 await client._resolve_model(c)

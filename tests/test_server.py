@@ -3,7 +3,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 
 from kontra_ki import server
 from kontra_ki.lm_studio_client import LMStudioError
-from kontra_ki.server import _split_verdict, challenge_idea
+from kontra_ki.server import _split_verdict, challenge_idea, quorum_review
 
 
 class TestSplitVerdict:
@@ -98,6 +98,65 @@ class TestChallengeIdea:
         await challenge_idea(idea="the idea", context="the context")
         assert "the context" in captured["user_content"]
         assert "the idea" in captured["user_content"]
+
+
+class TestQuorumReview:
+    async def test_rejects_when_reject_quorum_is_reached(self, monkeypatch):
+        async def fake_ask(system_prompt, user_content):
+            return "unsafe\nVERDICT: REJECT"
+
+        monkeypatch.setattr(server, "ask", fake_ask)
+
+        result = await quorum_review(idea="test")
+
+        assert result.startswith("QUORUM: REJECT")
+        assert "code_skeptic: REJECT" in result
+        assert "inquisitor: REJECT" in result
+
+    async def test_returns_inconclusive_on_split_vote(self, monkeypatch):
+        responses = iter(("looks fine\nVERDICT: PASS", "needs work\nVERDICT: REJECT"))
+
+        async def fake_ask(system_prompt, user_content):
+            return next(responses)
+
+        monkeypatch.setattr(server, "ask", fake_ask)
+
+        result = await quorum_review(idea="test")
+
+        assert result.startswith("QUORUM: INCONCLUSIVE")
+
+    async def test_rejects_non_strict_persona(self):
+        with pytest.raises(ToolError, match="does not support strict mode"):
+            await quorum_review(idea="test", personas=["diabolo", "inquisitor"])
+
+    async def test_rejects_invalid_quorum(self):
+        with pytest.raises(ToolError, match="between 1 and 2"):
+            await quorum_review(idea="test", quorum=3)
+
+    async def test_does_not_replace_explicit_empty_personas(self):
+        with pytest.raises(ToolError, match="at least two personas"):
+            await quorum_review(idea="test", personas=[])
+
+    async def test_names_persona_when_review_fails(self, monkeypatch):
+        async def fake_ask(system_prompt, user_content):
+            if "Code Inquisitor" in system_prompt:
+                raise LMStudioError("model unavailable")
+            return "looks fine\nVERDICT: PASS"
+
+        monkeypatch.setattr(server, "ask", fake_ask)
+
+        with pytest.raises(ToolError, match="inquisitor.*model unavailable"):
+            await quorum_review(idea="test")
+
+    async def test_report_has_clean_persona_headers(self, monkeypatch):
+        async def fake_ask(system_prompt, user_content):
+            return "looks fine\nVERDICT: PASS"
+
+        monkeypatch.setattr(server, "ask", fake_ask)
+
+        result = await quorum_review(idea="test")
+
+        assert "\n\n---" not in result
 
 
 class TestAuditLogging:
