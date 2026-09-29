@@ -88,9 +88,11 @@ async def challenge_idea(
             senior developer, focuses on scale/overengineering), "antithesis" (takes
             the radical opposite position), "code_skeptic" (paranoid code auditor,
             focuses on maintainability/tests/abstractions), "inquisitor" (rejects
-            incomplete or non-production-ready code outright), "chief_architect"
-            (impatient architect, demands hard quantitative proof, zero platitudes).
-            Default: "diabolo".
+            incomplete or non-production-ready code outright), "security_auditor"
+            (finds concrete vulnerabilities and assesses exploitability), "chief_architect"
+            (impatient architect, demands hard quantitative proof, zero platitudes),
+            "sycophant_hunter" (audits an answer for being shaped to please rather
+            than be correct). Default: "diabolo".
         strict: Only valid for personas with pass/fail semantics ("inquisitor",
             "code_skeptic"). When True, the persona also issues a verdict; on
             reject, this tool call itself comes back as an MCP tool error
