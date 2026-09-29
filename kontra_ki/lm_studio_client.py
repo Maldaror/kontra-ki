@@ -10,7 +10,11 @@ LM_STUDIO_CHAT_URL = f"{LM_STUDIO_BASE}/v1/chat/completions"
 LM_STUDIO_MODELS_URL = f"{LM_STUDIO_BASE}/api/v0/models"
 CONFIGURED_MODEL = os.environ.get("KONTRA_KI_MODEL")
 API_KEY = os.environ.get("KONTRA_KI_LM_STUDIO_API_KEY")
-TIMEOUT_SECONDS = 120
+_timeout_value = os.environ.get("KONTRA_KI_TIMEOUT_SECONDS")
+TIMEOUT_SECONDS = float(_timeout_value) if _timeout_value else None
+MODEL_LOOKUP_TIMEOUT_SECONDS = float(
+    os.environ.get("KONTRA_KI_MODEL_LOOKUP_TIMEOUT_SECONDS", "10")
+)
 LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
 
 
@@ -58,7 +62,9 @@ async def _resolve_model(client: httpx.AsyncClient) -> str:
 
     try:
         response = await client.get(
-            LM_STUDIO_MODELS_URL, headers=_request_headers(), timeout=10
+            LM_STUDIO_MODELS_URL,
+            headers=_request_headers(),
+            timeout=MODEL_LOOKUP_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
     except httpx.HTTPError as exc:
@@ -141,9 +147,12 @@ async def ask(system_prompt: str, user_content: str) -> str:
                 f"LM Studio returned HTTP {exc.response.status_code}: {exc.response.text}"
             ) from exc
         except httpx.TimeoutException as exc:
-            raise LMStudioError(
-                f"LM Studio did not respond within {TIMEOUT_SECONDS}s (timeout)."
-            ) from exc
+            message = (
+                f"LM Studio did not respond within {TIMEOUT_SECONDS:g}s (timeout)."
+                if TIMEOUT_SECONDS is not None
+                else "LM Studio request timed out."
+            )
+            raise LMStudioError(message) from exc
         except httpx.RequestError as exc:
             raise LMStudioError(
                 f"Could not communicate with LM Studio at {LM_STUDIO_CHAT_URL}."

@@ -30,6 +30,7 @@ class FakeAsyncClient:
 
     async def post(self, url, headers=None, json=None, timeout=None):
         self.post_headers = headers
+        self.post_timeout = timeout
         if self._post_exc:
             raise self._post_exc
         return self._post_response
@@ -77,6 +78,20 @@ class TestAsk:
         await ask("system", "user")
 
         assert fake.post_headers == {"Authorization": "Bearer secret"}
+
+    async def test_uses_configured_request_timeout(self, monkeypatch):
+        monkeypatch.setattr(client, "CONFIGURED_MODEL", "test-model")
+        monkeypatch.setattr(client, "TIMEOUT_SECONDS", 7.0)
+        fake = use_fake_client(
+            monkeypatch,
+            post_response=make_response(
+                {"choices": [{"message": {"content": "the critique"}}]}
+            ),
+        )
+
+        await ask("system", "user")
+
+        assert fake.post_timeout == 7.0
 
     async def test_rejects_remote_http_endpoint(self, monkeypatch):
         monkeypatch.setattr(client, "LM_STUDIO_BASE", "http://remote-host:1234")
@@ -139,7 +154,7 @@ class TestAsk:
         request = httpx.Request("POST", "http://localhost:1234/v1/chat/completions")
         use_fake_client(monkeypatch, post_exc=httpx.TimeoutException("slow", request=request))
 
-        with pytest.raises(LMStudioError, match="did not respond within"):
+        with pytest.raises(LMStudioError, match="timed out"):
             await ask("system", "user")
 
     async def test_raises_on_other_request_error(self, monkeypatch):

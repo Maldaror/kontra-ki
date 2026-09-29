@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 import pytest
@@ -156,8 +157,34 @@ class TestQuorumReview:
 
         monkeypatch.setattr(server, "ask", fake_ask)
 
-        with pytest.raises(ToolError, match="inquisitor.*model unavailable"):
-            await quorum_review(idea="test")
+        parsed = json.loads(await quorum_review(idea="test"))
+
+        failed_review = next(
+            review for review in parsed["reviews"] if review["persona"] == "inquisitor"
+        )
+        assert failed_review == {
+            "persona": "inquisitor",
+            "status": "error",
+            "error": "model unavailable",
+        }
+        assert parsed["counts"]["error"] == 1
+
+    async def test_records_review_timeout_as_inconclusive(self, monkeypatch):
+        async def slow_review(idea, context, persona):
+            await asyncio.sleep(1)
+
+        monkeypatch.setattr(server, "_strict_review", slow_review)
+        monkeypatch.setattr(server, "QUORUM_TIMEOUT_SECONDS", 0.01)
+
+        parsed = json.loads(
+            await quorum_review(
+                idea="test", personas=["code_skeptic", "inquisitor"]
+            )
+        )
+
+        assert parsed["outcome"] == "INCONCLUSIVE"
+        assert parsed["counts"]["error"] == 2
+        assert all(review["error"] == "review timed out after 0.01s" for review in parsed["reviews"])
 
     async def test_result_contains_structured_reviews(self, monkeypatch):
         async def fake_ask(system_prompt, user_content):
@@ -169,7 +196,10 @@ class TestQuorumReview:
 
         parsed = json.loads(result)
         assert set(parsed) == {"outcome", "policy", "counts", "votes", "reviews"}
-        assert all(set(review) == {"persona", "verdict", "critique"} for review in parsed["reviews"])
+        assert all(
+            set(review) == {"persona", "status", "verdict", "critique"}
+            for review in parsed["reviews"]
+        )
 
 
 class TestAuditLogging:

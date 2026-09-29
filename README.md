@@ -35,6 +35,14 @@ elsewhere (a different port, or a different machine on your network), set
 `KONTRA_KI_LM_STUDIO_URL` to override it (see below). Remote endpoints must use
 HTTPS and require `KONTRA_KI_LM_STUDIO_API_KEY`; local `localhost` usage does not.
 
+Timeouts can be enabled with `KONTRA_KI_TIMEOUT_SECONDS` for chat requests,
+`KONTRA_KI_MODEL_LOOKUP_TIMEOUT_SECONDS` (default: `10`) for model discovery, and
+`KONTRA_KI_QUORUM_TIMEOUT_SECONDS` for each persona review in a quorum. Chat and
+quorum timeouts are unlimited by default; set them explicitly when a calling client
+needs a hard upper bound. If an individual quorum review times out or fails,
+that failure is included in the structured result and the quorum returns
+`INCONCLUSIVE` unless the remaining votes still reach the configured quorum.
+
 ### 2. Install Kontra-KI
 
 ```bash

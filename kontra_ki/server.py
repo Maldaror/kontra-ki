@@ -20,6 +20,10 @@ from kontra_ki.personas import (
 from kontra_ki.prompts import register_prompts
 
 _VERDICT_RE = re.compile(r'^VERDICT:\s*(REJECT|PASS)\s*$', re.IGNORECASE)
+_quorum_timeout_value = os.environ.get("KONTRA_KI_QUORUM_TIMEOUT_SECONDS")
+QUORUM_TIMEOUT_SECONDS = (
+    float(_quorum_timeout_value) if _quorum_timeout_value else None
+)
 
 # stdio is the MCP transport's stdout - never log there, or the JSON-RPC
 # stream gets corrupted. stderr is the only safe default for this transport.
@@ -48,6 +52,14 @@ def _split_verdict(reply: str) -> tuple[str, str | None]:
     if match is None:
         return reply, None
     return "\n".join(lines[:-1]).rstrip(), match.group(1).upper()
+
+
+def _review_error_message(error: Exception) -> str:
+    if isinstance(error, TimeoutError):
+        if QUORUM_TIMEOUT_SECONDS is not None:
+            return f"review timed out after {QUORUM_TIMEOUT_SECONDS:g}s"
+        return "review timed out"
+    return str(error) or error.__class__.__name__
 
 
 @mcp.tool()
@@ -143,6 +155,15 @@ async def _strict_review(
     return critique, verdict
 
 
+async def _review_with_timeout(
+    idea: str, context: str, persona: str
+) -> tuple[str, str]:
+    review = _strict_review(idea, context, persona)
+    if QUORUM_TIMEOUT_SECONDS is None:
+        return await review
+    return await asyncio.wait_for(review, timeout=QUORUM_TIMEOUT_SECONDS)
+
+
 @mcp.tool()
 async def quorum_review(
     idea: str,
@@ -161,18 +182,43 @@ async def quorum_review(
         raise ToolError("Quorum review personas must be unique.")
     if quorum < 1 or quorum > len(selected):
         raise ToolError(f"Quorum must be between 1 and {len(selected)}.")
+    for persona in selected:
+        if persona not in PERSONAS:
+            raise ToolError(f"Unknown persona '{persona}'. Available: {', '.join(PERSONAS)}.")
+        if persona not in STRICT_CAPABLE_PERSONAS:
+            raise ToolError(
+                f"Persona '{persona}' does not support strict mode. "
+                f"Strict-capable personas: {', '.join(sorted(STRICT_CAPABLE_PERSONAS))}."
+            )
 
     raw_reviews = await asyncio.gather(
-        *(_strict_review(idea, context, persona) for persona in selected),
+        *(_review_with_timeout(idea, context, persona) for persona in selected),
         return_exceptions=True,
     )
     reviews = []
+    successful_reviews = []
     for persona, review in zip(selected, raw_reviews):
         if isinstance(review, Exception):
-            raise ToolError(f"Persona '{persona}' failed: {review}") from review
-        reviews.append(review)
-    reject_count = sum(verdict == "REJECT" for _, verdict in reviews)
-    pass_count = sum(verdict == "PASS" for _, verdict in reviews)
+            reviews.append(
+                {
+                    "persona": persona,
+                    "status": "error",
+                    "error": _review_error_message(review),
+                }
+            )
+            continue
+        critique, verdict = review
+        successful_reviews.append((persona, critique, verdict))
+        reviews.append(
+            {
+                "persona": persona,
+                "status": "ok",
+                "verdict": verdict,
+                "critique": critique,
+            }
+        )
+    reject_count = sum(verdict == "REJECT" for _, _, verdict in successful_reviews)
+    pass_count = sum(verdict == "PASS" for _, _, verdict in successful_reviews)
     if reject_count >= quorum:
         outcome = "REJECT"
     elif pass_count >= quorum:
@@ -183,12 +229,14 @@ async def quorum_review(
     result = {
         "outcome": outcome,
         "policy": "reject_precedence",
-        "counts": {"pass": pass_count, "reject": reject_count, "quorum": quorum},
-        "votes": {persona: verdict for persona, (_, verdict) in zip(selected, reviews)},
-        "reviews": [
-            {"persona": persona, "verdict": verdict, "critique": critique}
-            for persona, (critique, verdict) in zip(selected, reviews)
-        ],
+        "counts": {
+            "pass": pass_count,
+            "reject": reject_count,
+            "error": len(selected) - len(successful_reviews),
+            "quorum": quorum,
+        },
+        "votes": {persona: verdict for persona, _, verdict in successful_reviews},
+        "reviews": reviews,
     }
     return json.dumps(result, ensure_ascii=False)
 
